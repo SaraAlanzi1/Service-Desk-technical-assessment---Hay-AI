@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { db, functions } from "@/lib/firebase/client";
+import { db } from "@/lib/firebase/client";
+import { callMutation } from "@/lib/api";
 import type { MonthlyReport } from "@hay-service-desk/shared";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -40,7 +40,7 @@ export default function AdminReportsPage() {
     setError(null);
     setGenerating(true);
     try {
-      await httpsCallable(functions, "generateMonthlyReport")({ providerId, month, year });
+      await callMutation("generateMonthlyReport", { providerId, month, year });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

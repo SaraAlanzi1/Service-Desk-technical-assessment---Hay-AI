@@ -12,8 +12,8 @@ import {
   where,
   type Timestamp,
 } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { db, functions } from "@/lib/firebase/client";
+import { db } from "@/lib/firebase/client";
+import { callMutation } from "@/lib/api";
 import { useCurrentUser } from "@/lib/auth/AuthProvider";
 import {
   currentClockState,
@@ -319,7 +319,7 @@ export default function ProviderQueuePage() {
   async function callTransition(name: string, data: Record<string, unknown>) {
     setError(null);
     try {
-      await httpsCallable(functions, name)(data);
+      await callMutation(name, data);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
