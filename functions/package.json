@@ -1,0 +1,25 @@
+{
+  "name": "@hay-service-desk/functions",
+  "version": "0.0.0",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && node esbuild.config.js",
+    "build:watch": "tsc -p tsconfig.json --noEmit --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^7.3.2"
+  },
+  "devDependencies": {
+    "@hay-service-desk/shared": "*",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}

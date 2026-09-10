@@ -1,0 +1,344 @@
+rules_version = '2';
+
+// Milestone 1: real rules for the three Auth-backed profile collections
+// (Tenant, ProviderStaff, OperatorAdmin).
+// Milestone 2: real rules for Ticket (create/read), plus a minimal Building
+// read rule (see note below).
+// Milestone 3: real read rule for PauseWindow.
+// Milestone 4: PauseWindow gains a narrow statusNote-only update rule for
+// provider staff with ticket access; every other PauseWindow field stays
+// Cloud-Function-only.
+// Milestone 5: real read rule for MonthlyReport (writes stay
+// Cloud-Function-only).
+// Milestone 6: CoverageGrant is real and effective-access-aware.
+// CoverageGrant (auto-generated IDs) stays the sole source of truth and
+// history. ProviderStaff.effectiveGrants is a DERIVED authorization index —
+// not authoritative — kept consistent with CoverageGrant by requiring both
+// documents to be written in the SAME atomic client batch (no Cloud
+// Function trigger: an async trigger would open a window where a grant
+// exists but access isn't yet active, or a revoke has landed but access
+// isn't yet cut off). getAfter()/get() cross-checks between the two match
+// blocks below are what enforce that consistency at write time.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'operatorAdmin';
+    }
+
+    function isTenantRole() {
+      return isSignedIn() && request.auth.token.role == 'tenant';
+    }
+
+    function isProviderRole() {
+      return isSignedIn() && request.auth.token.role == 'providerStaff';
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Self may only ever change name/email; buildingId, providerId, and
+    // homeBuildingId are admin-provisioned and admin-writable only.
+    function selfUpdateOnlyChangesNameAndEmail() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['name', 'email']);
+    }
+
+    // Post-batch state of a CoverageGrant's pointer entry on its
+    // ProviderStaff doc, or null if absent. Used from the CoverageGrant
+    // side to verify the same batch updates the pointer consistently.
+    function pointerAfter(providerStaffId, buildingId) {
+      let staffPath = /databases/$(database)/documents/ProviderStaff/$(providerStaffId);
+      return existsAfter(staffPath)
+        ? getAfter(staffPath).data.get('effectiveGrants', {}).get(buildingId, null)
+        : null;
+    }
+
+    function pointerMatchesGrant(providerStaffId, buildingId, grantId, expiresAt, revokedAt) {
+      let pointer = pointerAfter(providerStaffId, buildingId);
+      return pointer != null
+        && pointer.grantId == grantId
+        && pointer.expiresAt == expiresAt
+        && pointer.revokedAt == revokedAt;
+    }
+
+    // Pre-batch state: is this grant currently the active pointer for its
+    // (staff, building) pair? Revoking a grant that ISN'T the current
+    // pointer (an older, already-superseded grant) must not require or
+    // allow touching a newer grant's pointer entry.
+    function isCurrentPointer(providerStaffId, buildingId, grantId) {
+      let staffPath = /databases/$(database)/documents/ProviderStaff/$(providerStaffId);
+      let pointer = exists(staffPath)
+        ? get(staffPath).data.get('effectiveGrants', {}).get(buildingId, null)
+        : null;
+      return pointer != null && pointer.grantId == grantId;
+    }
+
+    // From the ProviderStaff side: any admin write touching effectiveGrants
+    // must, for every changed/added building key, point at a CoverageGrant
+    // document (existing, or created in this same batch via getAfter) whose
+    // own fields match exactly. No key may be removed.
+    //
+    // Firestore Rules has no quantifier (no `.all()`/`.exists()` over a
+    // list or set — confirmed by testing against the emulator, not
+    // assumed) to generically check "every changed key in this map is
+    // valid" without knowing the keys in advance. Building is a fixed,
+    // locked 6-document collection (matching the existing precedent of
+    // hardcoding the 2 Provider IDs in categoryProviderId() above), so
+    // this checks each of the 6 possible buildingId keys explicitly rather
+    // than iterating. This is the ProviderStaff-side half of the
+    // same-batch consistency check — CoverageGrant's create/update rules
+    // are the other half.
+    function isValidSingleGrantChange(uid, buildingId) {
+      let oldGrants = resource.data.get('effectiveGrants', {});
+      let newGrants = request.resource.data.get('effectiveGrants', {});
+      return !(buildingId in newGrants)
+        || (buildingId in oldGrants && oldGrants[buildingId] == newGrants[buildingId])
+        || isLegitimateGrantPointer(uid, buildingId, newGrants[buildingId]);
+    }
+
+    function isValidEffectiveGrantsUpdate(uid) {
+      let oldGrants = resource.data.get('effectiveGrants', {});
+      let newGrants = request.resource.data.get('effectiveGrants', {});
+      // Any key outside the 6 canonical building IDs must be rejected
+      // outright here, not merely left unchecked — isValidSingleGrantChange
+      // only enumerates those 6, so without this check a key like
+      // "building-88" would silently bypass validation entirely (caught by
+      // testing: an admin write forging a pointer to a nonexistent grant
+      // under a non-canonical key succeeded before this line was added).
+      // Using hasAll() in the reverse direction (canonical list contains
+      // every newGrants key) rather than hasOnly() — hasOnly() triggered a
+      // "Null value error" from the emulator's speculative two-phase rule
+      // evaluation on an unrelated match block, confirmed empirically by
+      // removing it and re-testing; hasAll() is already proven working
+      // elsewhere in this same function.
+      return newGrants.keys().hasAll(oldGrants.keys())
+        && ['building-1', 'building-2', 'building-3', 'building-4', 'building-5', 'building-6'].hasAll(newGrants.keys())
+        && isValidSingleGrantChange(uid, 'building-1')
+        && isValidSingleGrantChange(uid, 'building-2')
+        && isValidSingleGrantChange(uid, 'building-3')
+        && isValidSingleGrantChange(uid, 'building-4')
+        && isValidSingleGrantChange(uid, 'building-5')
+        && isValidSingleGrantChange(uid, 'building-6');
+    }
+
+    function isLegitimateGrantPointer(uid, buildingId, pointerValue) {
+      let grantPath = /databases/$(database)/documents/CoverageGrant/$(pointerValue.grantId);
+      return existsAfter(grantPath)
+        && getAfter(grantPath).data.providerStaffId == uid
+        && getAfter(grantPath).data.buildingId == buildingId
+        && getAfter(grantPath).data.expiresAt == pointerValue.expiresAt
+        && getAfter(grantPath).data.revokedAt == pointerValue.revokedAt;
+    }
+
+    match /Tenant/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      // Creation only ever happens via the createTenant Cloud Function
+      // (Admin SDK, bypasses rules) — direct client create is always denied.
+      allow create: if false;
+      allow update: if isAdmin() || (isSelf(uid) && selfUpdateOnlyChangesNameAndEmail());
+      allow delete: if false;
+    }
+
+    match /ProviderStaff/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create: if false;
+      // Admin may edit any field freely EXCEPT effectiveGrants, which must
+      // pass the same-batch CoverageGrant consistency check whenever it's
+      // touched — this is the field a forged/mismatched write would target.
+      allow update: if (isSelf(uid) && selfUpdateOnlyChangesNameAndEmail())
+        || (isAdmin() && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['effectiveGrants'])
+          || isValidEffectiveGrantsUpdate(uid)
+        ));
+      allow delete: if false;
+    }
+
+    match /OperatorAdmin/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      // Even the bootstrap admin is seeded via the Admin SDK, not a client
+      // write — direct client create is always denied here too.
+      allow create: if false;
+      allow update: if isAdmin() || (isSelf(uid) && selfUpdateOnlyChangesNameAndEmail());
+      allow delete: if false;
+    }
+
+    // Milestone 2 addition, not in the original enumerated rules scope: the
+    // provider queue needs to resolve buildingId -> building name, which is
+    // impossible without SOME read path for Building. Contents are low
+    // sensitivity (6 fixed properties' name/address), so any signed-in user
+    // may read; writes stay admin-provisioned-only (seed script for now).
+    match /Building/{buildingId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    function tenantProfile(uid) {
+      return get(/databases/$(database)/documents/Tenant/$(uid)).data;
+    }
+
+    function providerStaffProfile(uid) {
+      return get(/databases/$(database)/documents/ProviderStaff/$(uid)).data;
+    }
+
+    // Hardcoded category -> Provider doc ID mapping. Mirrors
+    // shared/src/providerMapping.ts's CATEGORY_TO_PROVIDER_ID exactly —
+    // Firestore rules cannot import shared code, so this is a deliberate,
+    // documented duplication. Keep both in sync if these IDs ever change.
+    function categoryProviderId(category) {
+      return category == 'cleaning' ? 'provider-cleaning'
+        : category == 'maintenance' ? 'provider-maintenance'
+        : null;
+    }
+
+    // "Effective access" per the design doc: homeBuildingId UNION any
+    // currently-active CoverageGrant (expiresAt > now AND revokedAt ==
+    // null). Reads effectiveGrants — already-fetched ProviderStaff data,
+    // zero extra reads — rather than querying or looking up CoverageGrant
+    // directly, which rules structurally cannot do.
+    function hasBuildingAccess(staffProfile, buildingId) {
+      let grant = staffProfile.get('effectiveGrants', {}).get(buildingId, null);
+      return staffProfile.homeBuildingId == buildingId
+        || (grant != null && grant.expiresAt > request.time && grant.revokedAt == null);
+    }
+
+    // Takes ticket data as a param (rather than reading `resource.data`
+    // directly) so it can be reused for the nested PauseWindow rule below,
+    // where `resource.data` refers to the PauseWindow doc, not the Ticket.
+    function canReadTicketData(ticket) {
+      return (isTenantRole() && ticket.tenantId == request.auth.uid)
+        || (isProviderRole()
+            && ticket.providerId == providerStaffProfile(request.auth.uid).providerId
+            && hasBuildingAccess(providerStaffProfile(request.auth.uid), ticket.buildingId))
+        || isAdmin();
+    }
+
+    // Milestone 4: narrower than canReadTicketData — tenants can read a
+    // ticket but should not be able to write to its PauseWindow. Used by
+    // the statusNote update rule below.
+    function canProviderAccessTicket(ticket) {
+      return (isProviderRole()
+            && ticket.providerId == providerStaffProfile(request.auth.uid).providerId
+            && hasBuildingAccess(providerStaffProfile(request.auth.uid), ticket.buildingId))
+        || isAdmin();
+    }
+
+    match /Ticket/{ticketId} {
+      allow read: if canReadTicketData(resource.data);
+
+      // Ticket create is a rules-authorized direct client write (not a
+      // Cloud Function) per the locked authorization boundary. Every
+      // server-controlled field must be validated here since there is no
+      // trusted server code in the path. workflowStatus and the
+      // accountability/breach fields aren't in Milestone 2's own enumerated
+      // validation list, but the original locked design already says rules
+      // must deny direct client writes to them — since create is itself a
+      // client write, that rule has to be enforced right here too.
+      allow create: if isTenantRole()
+        && request.resource.data.tenantId == request.auth.uid
+        && request.resource.data.buildingId == tenantProfile(request.auth.uid).buildingId
+        && request.resource.data.unit == tenantProfile(request.auth.uid).unit
+        && request.resource.data.providerId == categoryProviderId(request.resource.data.category)
+        && request.resource.data.submittedAt == request.time
+        && request.resource.data.workflowStatus == 'submitted'
+        && request.resource.data.acknowledgedAt == null
+        && request.resource.data.acknowledgedBy == null
+        && request.resource.data.resolvedAt == null
+        && request.resource.data.resolvedBy == null
+        && request.resource.data.firstBreachedAt == null;
+
+      // Transitions (acknowledge/pause/resume/resolve) are Milestone 3
+      // Cloud Functions — no direct client update path exists at all.
+      allow update: if false;
+      allow delete: if false;
+
+      // Read access mirrors the parent Ticket's: initially scoped this
+      // milestone assuming the client would never need direct PauseWindow
+      // reads, but the live SLA countdown for a ticket that's ever been
+      // paused genuinely needs past pause durations to compute an accurate
+      // elapsed time — that data only exists here.
+      //
+      // Milestone 4: statusNote may be updated directly by any provider
+      // staff with access to the parent ticket (not just whoever opened the
+      // pause) — a colleague covering the same building should be able to
+      // update the shared note. Every other field (pausedAt, resumedAt,
+      // reason, requestedBy, resumedBy, estimatedResumeAt) stays
+      // Cloud-Function-only. Create/delete are Cloud-Function-only too.
+      match /PauseWindow/{pauseId} {
+        allow read: if canReadTicketData(get(/databases/$(database)/documents/Ticket/$(ticketId)).data);
+        allow update: if canProviderAccessTicket(get(/databases/$(database)/documents/Ticket/$(ticketId)).data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statusNote']);
+        allow create: if false;
+        allow delete: if false;
+      }
+    }
+
+    // Milestone 6: CoverageGrant lifecycle. Auto-generated doc IDs — the
+    // locked schema as-is, no ID convention imposed, full history
+    // preserved (reissuing never overwrites a prior grant document).
+    // grantedBy must match the caller (never trusted from the client beyond
+    // that), mirroring how every other accountability field in this
+    // project is validated.
+    match /CoverageGrant/{grantId} {
+      allow read: if false;
+
+      allow create: if isAdmin()
+        && request.resource.data.grantedBy == request.auth.uid
+        && request.resource.data.grantedAt == request.time
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.revokedAt == null
+        && pointerMatchesGrant(
+             request.resource.data.providerStaffId,
+             request.resource.data.buildingId,
+             grantId,
+             request.resource.data.expiresAt,
+             null
+           );
+
+      // Revoke only: revokedAt may move from null to exactly request.time,
+      // nothing else about the grant may change. If this grant is
+      // currently the active pointer for its (staff, building) pair, the
+      // same batch must also update the pointer's revokedAt to match —
+      // otherwise access wouldn't actually be revoked (there's no trigger
+      // to do this asynchronously). Revoking an OLDER, already-superseded
+      // grant requires no pointer change at all, which is exactly what
+      // keeps that case from touching a newer grant's pointer.
+      allow update: if isAdmin()
+        && resource.data.revokedAt == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revokedAt'])
+        && request.resource.data.revokedAt == request.time
+        && (
+          !isCurrentPointer(resource.data.providerStaffId, resource.data.buildingId, grantId)
+          || pointerMatchesGrant(
+               resource.data.providerStaffId,
+               resource.data.buildingId,
+               grantId,
+               resource.data.expiresAt,
+               request.time
+             )
+        );
+
+      allow delete: if false;
+    }
+
+    // Milestone 5: MonthlyReport is a persisted snapshot, written only by
+    // generateMonthlyReport (Admin SDK, bypasses rules). Tenants have no
+    // reason to see provider performance reports at all.
+    match /MonthlyReport/{reportId} {
+      allow read: if isAdmin()
+        || (isProviderRole() && resource.data.providerId == providerStaffProfile(request.auth.uid).providerId);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

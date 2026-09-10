@@ -1,0 +1,27 @@
+node_modules/
+
+# Firebase emulator / CLI logs and local state
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+firestore-debug.*.log
+pubsub-debug.log
+ui-debug.log
+.firebase/
+firestore-export/
+
+# Build output
+web/.next/
+functions/lib/
+shared/lib/
+*.tsbuildinfo
+
+# Env files (never commit real secrets; emulator demo config stays local too)
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db

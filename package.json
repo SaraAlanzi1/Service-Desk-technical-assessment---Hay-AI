@@ -1,0 +1,14 @@
+{
+  "name": "hay-service-desk",
+  "private": true,
+  "workspaces": [
+    "web",
+    "functions",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "build": "npm run build --workspace=shared && npm run build --workspace=functions && npm run build --workspace=web",
+    "emulators": "firebase emulators:start"
+  }
+}
