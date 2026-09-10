@@ -178,6 +178,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Reference data, same shape as Building's rule above — was missing
+    // entirely (no page reads it via client SDK today, only via hardcoded
+    // arrays, so this had no visible symptom, but the collection is part of
+    // the locked 8-collection data model and had zero rule coverage).
+    match /Provider/{providerId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     function tenantProfile(uid) {
       return get(/databases/$(database)/documents/Tenant/$(uid)).data;
     }

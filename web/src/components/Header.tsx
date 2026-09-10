@@ -1,18 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
 
 export interface NavLink {
   href: string;
   label: string;
 }
 
-// Shared header for all three role-scoped layouts. Purely presentational +
-// navigation (Link only) — no data fetching, no auth logic; the actual
-// role gate stays in each route group's layout.tsx.
+// Shared header for all three role-scoped layouts. Navigation (Link) plus
+// sign-out — the one auth action every role needs to switch accounts during
+// a demo/review. No other auth or data logic; the role gate itself stays in
+// each route group's layout.tsx.
 export function Header({ roleLabel, links }: { roleLabel: string; links: NavLink[] }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await signOut(auth);
+    router.replace("/");
+  }
 
   return (
     <header className="border-b border-brand-border bg-brand-primary">
@@ -41,9 +50,17 @@ export function Header({ roleLabel, links }: { roleLabel: string; links: NavLink
             );
           })}
         </nav>
-        <span className="ml-auto text-xs font-semibold uppercase tracking-wide text-brand-cream/70">
-          {roleLabel}
-        </span>
+        <div className="ml-auto flex items-center gap-4">
+          <span className="text-xs font-semibold uppercase tracking-wide text-brand-cream/70">
+            {roleLabel}
+          </span>
+          <button
+            onClick={handleSignOut}
+            className="rounded-lg border border-brand-cream/30 px-3 py-1.5 text-xs font-semibold text-brand-cream/80 transition-colors hover:bg-brand-cream/10 hover:text-brand-cream"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </header>
   );

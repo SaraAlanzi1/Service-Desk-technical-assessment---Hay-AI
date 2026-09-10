@@ -1,19 +1,41 @@
 "use client";
 
+import Link from "next/link";
 import { useCurrentUser } from "@/lib/auth/AuthProvider";
 import { Card } from "@/components/ui/Card";
 
-// Placeholder: proves the route guard + profile read work. Real provider
-// features (queue, pause flow, etc.) land in their own milestones.
 export default function ProviderDashboardPage() {
-  const { uid, profile } = useCurrentUser();
+  const { profile } = useCurrentUser();
+  const name = (profile?.name as string) ?? "there";
+  const providerId = profile?.providerId as string | undefined;
+  const homeBuildingId = profile?.homeBuildingId as string | undefined;
+
   return (
     <main className="mx-auto max-w-3xl p-8">
-      <h1 className="text-xl font-semibold text-brand-primary">Provider Dashboard (placeholder)</h1>
-      <Card className="mt-4">
-        <p className="font-mono text-sm">uid: {uid}</p>
-        <pre className="mt-2 text-sm">{JSON.stringify(profile, null, 2)}</pre>
-      </Card>
+      <h1 className="text-xl font-semibold text-brand-primary">Welcome, {name}</h1>
+      <p className="mt-1 text-sm text-brand-primary/70">
+        {[providerId, homeBuildingId].filter(Boolean).join(" · ") || "Provider staff"}
+      </p>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Card>
+          <h2 className="font-semibold text-brand-primary">Ticket Queue</h2>
+          <p className="mt-1 text-sm text-brand-primary/70">
+            Acknowledge, pause, resume, and resolve tickets for your building.
+          </p>
+          <Link href="/provider/queue" className="mt-3 inline-block text-sm font-semibold text-brand-info">
+            View queue →
+          </Link>
+        </Card>
+        <Card>
+          <h2 className="font-semibold text-brand-primary">Monthly Reports</h2>
+          <p className="mt-1 text-sm text-brand-primary/70">
+            Review past performance snapshots for your provider.
+          </p>
+          <Link href="/provider/reports" className="mt-3 inline-block text-sm font-semibold text-brand-info">
+            View reports →
+          </Link>
+        </Card>
+      </div>
     </main>
   );
 }
