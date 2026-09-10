@@ -85,47 +85,90 @@ export default function AdminReportsPage() {
       </Card>
 
       <Card className="mt-4">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-brand-border">
-              <th className="py-2">Provider</th>
-              <th className="py-2">Period</th>
-              <th className="py-2">Total</th>
-              <th className="py-2">Open</th>
-              <th className="py-2">Breached</th>
-              <th className="py-2">Avg Resolve (min)</th>
-              <th className="py-2">Generated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reports.map((r) => (
-              <tr
-                key={r.id}
-                className="cursor-pointer border-b border-brand-border hover:bg-brand-cream"
-                onClick={() => setSelected(r)}
-              >
-                <td className="py-2">{r.data.providerId}</td>
-                <td className="py-2">
-                  {r.data.month}/{r.data.year}
-                </td>
-                <td className="py-2">{r.data.totalTickets}</td>
-                <td className="py-2">{r.data.openCount}</td>
-                <td className="py-2">{r.data.breachedCount}</td>
-                <td className="py-2">{r.data.avgResolveTimeMinutes.toFixed(1)}</td>
-                <td className="py-2">{r.data.generatedAt.toDate().toLocaleString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {reports.length === 0 && <p className="text-sm text-brand-primary/60">No reports generated yet.</p>}
+        {reports.length === 0 ? (
+          <p className="py-6 text-center text-sm text-brand-primary/50">No reports generated yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-brand-border text-brand-primary/70">
+                  <th className="py-2 font-semibold">Provider</th>
+                  <th className="py-2 font-semibold">Period</th>
+                  <th className="py-2 font-semibold">Total</th>
+                  <th className="py-2 font-semibold">Open</th>
+                  <th className="py-2 font-semibold">Breached</th>
+                  <th className="py-2 font-semibold">Avg Resolve (min)</th>
+                  <th className="py-2 font-semibold">Generated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reports.map((r) => {
+                  const active = selected?.id === r.id;
+                  return (
+                    <tr
+                      key={r.id}
+                      className={`cursor-pointer border-b border-brand-border transition-colors hover:bg-brand-cream/60 ${active ? "bg-brand-cream" : ""}`}
+                      onClick={() => setSelected(active ? null : r)}
+                    >
+                      <td className="py-2.5 font-medium capitalize">{r.data.providerId.replace("provider-", "")}</td>
+                      <td className="py-2.5">
+                        {r.data.month}/{r.data.year}
+                      </td>
+                      <td className="py-2.5">{r.data.totalTickets}</td>
+                      <td className="py-2.5">{r.data.openCount}</td>
+                      <td className="py-2.5">
+                        {r.data.breachedCount > 0 ? (
+                          <span className="font-semibold text-brand-error">{r.data.breachedCount}</span>
+                        ) : (
+                          r.data.breachedCount
+                        )}
+                      </td>
+                      <td className="py-2.5">{r.data.avgResolveTimeMinutes.toFixed(1)}</td>
+                      <td className="py-2.5 text-brand-primary/70">
+                        {r.data.generatedAt.toDate().toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       {selected && (
-        <Card className="mt-4 text-sm">
-          <h2 className="font-semibold">
-            {selected.data.providerId} — {selected.data.month}/{selected.data.year}
+        <Card className="mt-4">
+          <h2 className="font-semibold text-brand-primary capitalize">
+            {selected.data.providerId.replace("provider-", "")} — {selected.data.month}/{selected.data.year}
           </h2>
-          <pre className="mt-2">{JSON.stringify(selected.data, null, 2)}</pre>
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+            <div>
+              <dt className="text-brand-primary/60">Total tickets</dt>
+              <dd className="font-semibold">{selected.data.totalTickets}</dd>
+            </div>
+            <div>
+              <dt className="text-brand-primary/60">Open</dt>
+              <dd className="font-semibold">{selected.data.openCount}</dd>
+            </div>
+            <div>
+              <dt className="text-brand-primary/60">Breached</dt>
+              <dd className={`font-semibold ${selected.data.breachedCount > 0 ? "text-brand-error" : ""}`}>
+                {selected.data.breachedCount}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-brand-primary/60">Avg resolve time</dt>
+              <dd className="font-semibold">{selected.data.avgResolveTimeMinutes.toFixed(1)} min</dd>
+            </div>
+            <div>
+              <dt className="text-brand-primary/60">Generated by</dt>
+              <dd className="font-mono text-xs">{selected.data.generatedBy.slice(0, 8)}</dd>
+            </div>
+            <div>
+              <dt className="text-brand-primary/60">Generated at</dt>
+              <dd>{selected.data.generatedAt.toDate().toLocaleString()}</dd>
+            </div>
+          </dl>
         </Card>
       )}
     </main>

@@ -10,6 +10,7 @@ import {
   type Ticket,
 } from "@hay-service-desk/shared";
 import { Card } from "@/components/ui/Card";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 const PROVIDERS = [
   { id: "provider-cleaning", name: "Cleaning" },
@@ -131,7 +132,7 @@ export default function AdminStatsPage() {
     load();
   }, []);
 
-  if (loading) return null;
+  if (loading) return <LoadingState label="Loading stats…" />;
 
   return (
     <main className="mx-auto max-w-3xl p-8">
@@ -141,14 +142,22 @@ export default function AdminStatsPage() {
         {stats.map((s) => (
           <Card key={s.providerId}>
             <h2 className="font-semibold text-brand-primary">{s.name}</h2>
-            <p className="mt-2 text-sm">Open tickets: {s.openCount}</p>
-            <p className="text-sm">
-              Breached tickets:{" "}
-              <span className={s.breachedCount > 0 ? "font-semibold text-brand-error" : ""}>
-                {s.breachedCount}
-              </span>
-            </p>
-            <p className="text-sm">Avg resolve time: {s.avgResolveTimeMinutes.toFixed(1)} min</p>
+            <dl className="mt-3 space-y-1.5 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-brand-primary/60">Open tickets</dt>
+                <dd className="font-semibold">{s.openCount}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-brand-primary/60">Breached tickets</dt>
+                <dd className={`font-semibold ${s.breachedCount > 0 ? "text-brand-error" : ""}`}>
+                  {s.breachedCount}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-brand-primary/60">Avg resolve time</dt>
+                <dd className="font-semibold">{s.avgResolveTimeMinutes.toFixed(1)} min</dd>
+              </div>
+            </dl>
           </Card>
         ))}
       </div>

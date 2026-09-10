@@ -17,24 +17,24 @@ export default function ProviderDashboardPage() {
         {[providerId, homeBuildingId].filter(Boolean).join(" · ") || "Provider staff"}
       </p>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Card>
-          <h2 className="font-semibold text-brand-primary">Ticket Queue</h2>
-          <p className="mt-1 text-sm text-brand-primary/70">
-            Acknowledge, pause, resume, and resolve tickets for your building.
-          </p>
-          <Link href="/provider/queue" className="mt-3 inline-block text-sm font-semibold text-brand-info">
-            View queue →
-          </Link>
-        </Card>
-        <Card>
-          <h2 className="font-semibold text-brand-primary">Monthly Reports</h2>
-          <p className="mt-1 text-sm text-brand-primary/70">
-            Review past performance snapshots for your provider.
-          </p>
-          <Link href="/provider/reports" className="mt-3 inline-block text-sm font-semibold text-brand-info">
-            View reports →
-          </Link>
-        </Card>
+        <Link href="/provider/queue" className="block">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <h2 className="font-semibold text-brand-primary">Ticket Queue</h2>
+            <p className="mt-1 text-sm text-brand-primary/70">
+              Acknowledge, pause, resume, and resolve tickets for your building.
+            </p>
+            <span className="mt-3 inline-block text-sm font-semibold text-brand-info">View queue →</span>
+          </Card>
+        </Link>
+        <Link href="/provider/reports" className="block">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <h2 className="font-semibold text-brand-primary">Monthly Reports</h2>
+            <p className="mt-1 text-sm text-brand-primary/70">
+              Review past performance snapshots for your provider.
+            </p>
+            <span className="mt-3 inline-block text-sm font-semibold text-brand-info">View reports →</span>
+          </Card>
+        </Link>
       </div>
     </main>
   );

@@ -7,6 +7,8 @@ import { useCurrentUser } from "@/lib/auth/AuthProvider";
 import { currentClockState, type PauseInterval, type Ticket } from "@hay-service-desk/shared";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { PriorityBadge } from "@/components/ui/PriorityBadge";
 import { slaUrgency } from "@/components/ui/slaUrgency";
 
 function formatDuration(ms: number): string {
@@ -58,12 +60,16 @@ function TenantTicketRow({ row, nowMs }: { row: TicketRow; nowMs: number }) {
   }, [row.data, pauses, nowMs]);
 
   return (
-    <tr className="border-b border-brand-border">
-      <td className="py-2">{row.data.title}</td>
-      <td className="py-2">{row.data.category}</td>
-      <td className="py-2">{row.data.priority}</td>
-      <td className="py-2">{row.data.workflowStatus}</td>
-      <td className="py-2">
+    <tr className="border-b border-brand-border transition-colors hover:bg-brand-cream/60">
+      <td className="py-2.5 font-medium">{row.data.title}</td>
+      <td className="py-2.5 capitalize">{row.data.category}</td>
+      <td className="py-2.5">
+        <PriorityBadge priority={row.data.priority} />
+      </td>
+      <td className="py-2.5">
+        <StatusBadge status={row.data.workflowStatus} />
+      </td>
+      <td className="py-2.5">
         {clockState ? (
           <Badge variant={slaUrgency(clockState)}>
             {clockState.breached
@@ -101,23 +107,28 @@ export default function TenantTicketsPage() {
     <main className="mx-auto max-w-3xl p-8">
       <h1 className="text-xl font-semibold text-brand-primary">My Tickets</h1>
       <Card className="mt-4">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-brand-border">
-              <th className="py-2">Title</th>
-              <th className="py-2">Category</th>
-              <th className="py-2">Priority</th>
-              <th className="py-2">Status</th>
-              <th className="py-2">SLA</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <TenantTicketRow key={row.id} row={row} nowMs={nowMs} />
-            ))}
-          </tbody>
-        </table>
-        {rows.length === 0 && <p className="text-sm text-brand-primary/60">No tickets yet.</p>}
+        {rows.length === 0 ? (
+          <p className="py-6 text-center text-sm text-brand-primary/50">No tickets yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-brand-border text-brand-primary/70">
+                  <th className="py-2 font-semibold">Title</th>
+                  <th className="py-2 font-semibold">Category</th>
+                  <th className="py-2 font-semibold">Priority</th>
+                  <th className="py-2 font-semibold">Status</th>
+                  <th className="py-2 font-semibold">SLA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <TenantTicketRow key={row.id} row={row} nowMs={nowMs} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </main>
   );

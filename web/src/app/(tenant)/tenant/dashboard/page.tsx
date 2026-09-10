@@ -17,24 +17,24 @@ export default function TenantDashboardPage() {
         {buildingId ? `${buildingId}${unit ? ` · Unit ${unit}` : ""}` : "Tenant"}
       </p>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Card>
-          <h2 className="font-semibold text-brand-primary">My Tickets</h2>
-          <p className="mt-1 text-sm text-brand-primary/70">
-            View the status and SLA countdown for every ticket you&apos;ve submitted.
-          </p>
-          <Link href="/tenant/tickets" className="mt-3 inline-block text-sm font-semibold text-brand-info">
-            View tickets →
-          </Link>
-        </Card>
-        <Card>
-          <h2 className="font-semibold text-brand-primary">New Ticket</h2>
-          <p className="mt-1 text-sm text-brand-primary/70">
-            Report a cleaning or maintenance issue for your unit.
-          </p>
-          <Link href="/tenant/tickets/new" className="mt-3 inline-block text-sm font-semibold text-brand-info">
-            Submit a ticket →
-          </Link>
-        </Card>
+        <Link href="/tenant/tickets" className="block">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <h2 className="font-semibold text-brand-primary">My Tickets</h2>
+            <p className="mt-1 text-sm text-brand-primary/70">
+              View the status and SLA countdown for every ticket you&apos;ve submitted.
+            </p>
+            <span className="mt-3 inline-block text-sm font-semibold text-brand-info">View tickets →</span>
+          </Card>
+        </Link>
+        <Link href="/tenant/tickets/new" className="block">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <h2 className="font-semibold text-brand-primary">New Ticket</h2>
+            <p className="mt-1 text-sm text-brand-primary/70">
+              Report a cleaning or maintenance issue for your unit.
+            </p>
+            <span className="mt-3 inline-block text-sm font-semibold text-brand-info">Submit a ticket →</span>
+          </Card>
+        </Link>
       </div>
     </main>
   );

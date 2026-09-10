@@ -38,31 +38,42 @@ export default function ProviderReportsPage() {
     <main className="mx-auto max-w-3xl p-8">
       <h1 className="text-xl font-semibold text-brand-primary">Monthly Reports</h1>
       <Card className="mt-4">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-brand-border">
-              <th className="py-2">Period</th>
-              <th className="py-2">Total</th>
-              <th className="py-2">Open</th>
-              <th className="py-2">Breached</th>
-              <th className="py-2">Avg Resolve (min)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reports.map((r) => (
-              <tr key={r.id} className="border-b border-brand-border">
-                <td className="py-2">
-                  {r.data.month}/{r.data.year}
-                </td>
-                <td className="py-2">{r.data.totalTickets}</td>
-                <td className="py-2">{r.data.openCount}</td>
-                <td className="py-2">{r.data.breachedCount}</td>
-                <td className="py-2">{r.data.avgResolveTimeMinutes.toFixed(1)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {reports.length === 0 && <p className="text-sm text-brand-primary/60">No reports yet.</p>}
+        {reports.length === 0 ? (
+          <p className="py-6 text-center text-sm text-brand-primary/50">No reports yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-brand-border text-brand-primary/70">
+                  <th className="py-2 font-semibold">Period</th>
+                  <th className="py-2 font-semibold">Total</th>
+                  <th className="py-2 font-semibold">Open</th>
+                  <th className="py-2 font-semibold">Breached</th>
+                  <th className="py-2 font-semibold">Avg Resolve (min)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reports.map((r) => (
+                  <tr key={r.id} className="border-b border-brand-border transition-colors hover:bg-brand-cream/60">
+                    <td className="py-2.5 font-medium">
+                      {r.data.month}/{r.data.year}
+                    </td>
+                    <td className="py-2.5">{r.data.totalTickets}</td>
+                    <td className="py-2.5">{r.data.openCount}</td>
+                    <td className="py-2.5">
+                      {r.data.breachedCount > 0 ? (
+                        <span className="font-semibold text-brand-error">{r.data.breachedCount}</span>
+                      ) : (
+                        r.data.breachedCount
+                      )}
+                    </td>
+                    <td className="py-2.5">{r.data.avgResolveTimeMinutes.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </main>
   );
