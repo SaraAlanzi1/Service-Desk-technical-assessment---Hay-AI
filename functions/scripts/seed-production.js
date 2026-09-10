@@ -94,6 +94,15 @@ async function main() {
     profile: { providerId: "provider-cleaning", homeBuildingId: "building-1" },
   });
 
+  await seedUser({
+    email: "provider2@example.com",
+    password: "password123",
+    name: "Demo Maintenance Provider Staff",
+    collection: "ProviderStaff",
+    role: "providerStaff",
+    profile: { providerId: "provider-maintenance", homeBuildingId: "building-1" },
+  });
+
   console.log("Done.");
 }
 
