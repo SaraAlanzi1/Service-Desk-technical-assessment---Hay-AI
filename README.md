@@ -90,8 +90,8 @@ Seeded accounts (password `password123` for all): `admin@example.com`, `tenant@e
 - **Firebase project**: `service-desk-hay` (Firestore + Auth on Spark; Cloud Functions intentionally not deployed — see above).
 - Vercel project settings: Root Directory `web`, Install Command `npm install` (runs at the monorepo root so the `shared` workspace resolves), Build Command `(cd ../shared && npm run build) && npm run build`.
 - Production env vars (Vercel, Production scope): the 7 `NEXT_PUBLIC_FIREBASE_*`/`NEXT_PUBLIC_USE_EMULATOR=false` values plus `FIREBASE_SERVICE_ACCOUNT_KEY` (secret).
-- Firebase Storage has not been provisioned in the production project (one manual console step, never done) — ticket photo upload will fail in production; every other flow is unaffected since photo attachment is optional.
-- Demo accounts (production, password `password123` for all): `admin@example.com`, `tenant@example.com`, `provider@example.com` (provider-cleaning, home building-1). Seeded via `functions/scripts/seed-production.js`, which also sets each account's role custom claim directly (idempotent — safe to re-run; see script header comment for why).
+- Firebase Storage has not been provisioned in the production project (one manual console click, never done — the CLI/API path is not available; see `SECURITY.md`'s "What has and hasn't been verified" for the full diagnosis). Attaching a photo to a ticket now fails within 20 seconds with a clear error instead of hanging forever (fixed); the underlying bucket still needs that one console click before photo upload can actually succeed. Every other flow is unaffected since photo attachment is optional.
+- Demo accounts (production, password `password123` for all): `admin@example.com`, `tenant@example.com`, `provider@example.com` (provider-cleaning, home building-1), `provider2@example.com` (provider-maintenance, home building-1). Seeded via `functions/scripts/seed-production.js`, which also sets each account's role custom claim directly (idempotent — safe to re-run; see script header comment for why).
 
 ### Production smoke test results
 
