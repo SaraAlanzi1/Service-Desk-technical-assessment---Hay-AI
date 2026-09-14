@@ -10,6 +10,29 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 
+// Bounds every photo-upload network call. Without this, a Storage failure
+// that surfaces to the browser as an opaque network error (e.g. CORS
+// rejection from a request that never gets a real response) can trigger the
+// Storage SDK's own retry-with-backoff instead of a clean rejection, which
+// left this form stuck on "Submitting..." with no feedback at all.
+const UPLOAD_TIMEOUT_MS = 20000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 export default function NewTicketPage() {
   const { uid, profile } = useCurrentUser();
   const [title, setTitle] = useState("");
@@ -40,8 +63,18 @@ export default function NewTicketPage() {
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           const photoRef = ref(storage, `ticketPhotos/${uid}/${ticketRef.id}/${i}-${file.name}`);
-          await uploadBytes(photoRef, file);
-          photoUrls.push(await getDownloadURL(photoRef));
+          try {
+            await withTimeout(uploadBytes(photoRef, file), UPLOAD_TIMEOUT_MS, "Photo upload timed out.");
+            const url = await withTimeout(
+              getDownloadURL(photoRef),
+              UPLOAD_TIMEOUT_MS,
+              "Photo upload timed out.",
+            );
+            photoUrls.push(url);
+          } catch (uploadErr) {
+            const reason = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+            throw new Error(`Photo upload failed (${reason}). Remove the attachment and try again.`);
+          }
         }
       }
 
